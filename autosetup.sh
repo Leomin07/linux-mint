@@ -30,6 +30,8 @@ APT_PACKAGES=(
   "yarn"
   "npm"
   "ffmpeg"
+  "bat"
+  "fzf"
   "vim"
   "neovim"
   "kitty"
@@ -40,6 +42,8 @@ APT_PACKAGES=(
   "tmux"
   "gnome-shell-extension-manager"
   "fish"
+  "btop"
+  "neofetch"
 )
 
 SNAP_PACKAGES=(
@@ -68,8 +72,7 @@ install_software() {
   case "$method" in
   "apt")
     if ! is_installed "$name"; then
-      sudo apt install -y "$name"
-      [ $? -eq 0 ] && log_success "Đã cài đặt '$name' thành công." || log_warning "Cài đặt '$name' thất bại."
+      sudo apt install -y "$name" && log_success "Đã cài đặt '$name'." || log_warning "Cài đặt '$name' thất bại."
     else
       log_info "'$name' đã được cài đặt, bỏ qua."
     fi
@@ -77,14 +80,13 @@ install_software() {
   "snap")
     local pkg_name=$(echo "$name" | awk '{print $1}')
     if ! snap list "$pkg_name" &>/dev/null; then
-      sudo snap install $name
-      [ $? -eq 0 ] && log_success "Đã cài đặt '$name' snap thành công." || log_warning "Cài đặt '$name' snap thất bại."
+      sudo snap install $name && log_success "Đã cài đặt '$name'." || log_warning "Cài đặt '$name' thất bại."
     else
-      log_info "'$pkg_name' snap đã được cài đặt, bỏ qua."
+      log_info "'$pkg_name' đã được cài đặt, bỏ qua."
     fi
     ;;
   *)
-    log_warning "Phương thức cài đặt '$method' không được hỗ trợ cho '$name'."
+    log_warning "Phương thức cài đặt '$method' không được hỗ trợ."
     ;;
   esac
 }
@@ -92,7 +94,6 @@ install_software() {
 configure_git() {
   git config --global user.name "$USER_NAME"
   git config --global user.email "$USER_EMAIL"
-
   if [ ! -f "$SSH_KEY_FILE" ]; then
     log_info "Tạo SSH key mới..."
     ssh-keygen -t ed25519 -C "$USER_EMAIL" -f "$SSH_KEY_FILE" -N ""
@@ -181,14 +182,14 @@ install_zsh_plugins() {
 }
 
 install_nerdfont() {
-  # Kiểm tra xem font JetBrainsMono đã có trong thư mục fonts chưa
+  mkdir -p ~/.local/share/fonts
   if fc-list | grep -i "JetBrainsMono" &>/dev/null; then
     log_info "Font JetBrainsMono đã được cài đặt, bỏ qua."
   else
     log_info "Đang tải và cài đặt font JetBrainsMono..."
-    wget -P ~/.local/share/fonts https://github.com/ryanoasis/nerd-fonts/releases/download/v3.0.2/JetBrainsMono.zip &&
+    wget -O ~/.local/share/fonts/JetBrainsMono.zip https://github.com/ryanoasis/nerd-fonts/releases/download/v3.0.2/JetBrainsMono.zip &&
       cd ~/.local/share/fonts &&
-      unzip JetBrainsMono.zip &&
+      unzip -o JetBrainsMono.zip &&
       rm JetBrainsMono.zip &&
       fc-cache -fv
 
@@ -284,7 +285,7 @@ install_ibus_bamboo() {
   log_success "Đã cài đặt và cấu hình ibus-bamboo."
 }
 
-install_wine(){
+install_wine() {
   sudo dpkg --add-architecture i386
 
   sudo mkdir -pm755 /etc/apt/keyrings
@@ -297,7 +298,16 @@ install_wine(){
   wineboot
 }
 
+clone_wallpaper() {
+  cd ~/Pictures # You can also choose a different location
+  git clone --depth=1 https://github.com/mylinuxforwork/wallpaper.git
+  cd wallpaper/
+}
 
+config_bat(){
+  mkdir -p ~/.local/bin
+  ln -s /usr/bin/batcat ~/.local/bin/bat
+}
 # --- Main ---
 
 log_info "Cập nhật APT..."
@@ -311,23 +321,34 @@ for snap_pkg in "${SNAP_PACKAGES[@]}"; do
   install_software "$snap_pkg" "snap"
 done
 
-
-
-install_fisher
 set_default_shell
+install_fisher
 install_fish_plugins
 configure_git
-configure_warp
-install_docker
-install_nerdfont
 install_lazydocker
-clean_apt
-install_ibus_bamboo
+config_bat
+
+read -p "🛡️ Ban co muon cai dat Warp khong? (y/n): " warp_answer
+[[ "$warp_answer" =~ ^[Yy]$ ]] && configure_warp || log_info "Bo qua Warp."
+
+read -p "🔤 Ban co muon cai Nerd Font khong? (y/n): " font_answer
+[[ "$font_answer" =~ ^[Yy]$ ]] && install_nerdfont || log_info "Bo qua font."
+
+read -p "🐳 Ban co muon cai Docker khong? (y/n): " docker_answer
+[[ "$docker_answer" =~ ^[Yy]$ ]] && install_docker || log_info "Bo qua Docker."
+
+read -p "🈶 Ban co muon cai ibus-bamboo khong? (y/n): " bamboo_answer
+[[ "$bamboo_answer" =~ ^[Yy]$ ]] && install_ibus_bamboo || log_info "Bo qua ibus-bamboo."
+
+read -p "📷 Bạn có muốn clone bộ hình nền không? (y/n): " clone_answer
+if [[ "$clone_answer" =~ ^[Yy]$ ]]; then
+  clone_wallpaper
+else
+  log_info "Bỏ qua bước clone wallpaper."
+fi
 
 dconf load /org/gnome/shell/extensions/ <~/my-ubuntu/dump_extensions.txt
 
-git clone https://github.com/Leomin07/wallpaper.git
-
-install_wine
+clean_apt
 
 log_success "🎉 Thiết lập môi trường hoàn tất!"

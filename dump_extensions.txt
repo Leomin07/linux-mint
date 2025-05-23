@@ -1,3 +1,18 @@
+[dash-to-dock]
+apply-custom-theme=false
+background-opacity=0.80000000000000004
+click-action='cycle-windows'
+dash-max-icon-size=32
+dock-fixed=true
+dock-position='BOTTOM'
+extend-height=false
+height-fraction=0.90000000000000002
+hot-keys=true
+preferred-monitor=-2
+preferred-monitor-by-connector='DP-1'
+preview-size-scale=0.0
+show-apps-at-top=false
+
 [ding]
 check-x11wayland=true
 
@@ -66,6 +81,7 @@ index=0
 
 [tiling-assistant]
 active-window-hint-color='rgb(211,70,21)'
+enable-tiling-popup=true
 last-version-installed=46
 overridden-settings={'org.gnome.mutter.edge-tiling': <@mb nothing>, 'org.gnome.mutter.keybindings.toggle-tiled-left': <@mb nothing>, 'org.gnome.mutter.keybindings.toggle-tiled-right': <@mb nothing>}
 restore-window=['<Super>Down']
