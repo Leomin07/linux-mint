@@ -1,0 +1,3 @@
+[media-keys]
+area-screenshot-clip=['<Shift><Super>s']
+terminal=['<Super>Return']

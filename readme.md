@@ -1,26 +1,19 @@
 ### Dump setting extensions
- - Dump
+
+- Dump
+
 ```
-dconf dump /org/gnome/shell/extensions/ > dump_extensions.txt
-```
- - Load file
-```
-dconf load /org/gnome/shell/extensions/ < dump_extensions.txt
+ dconf dump /org/cinnamon/desktop/keybindings/  > ~/linux-mint/keybindings_config.dconf
 ```
 
-### Export Installed Extensions
+- Load file
+
 ```
-gnome-extensions list --enabled > extensions.txt
-```
-### Reinstall Extensions Later
-```
-while read -r uuid; do
-    gnome-extensions enable "$uuid"
-done < extensions.txt
+ dconf load /org/cinnamon/desktop/keybindings/  < ~/linux-mint/keybindings_config.dconf
 ```
 
 ### Virtual Machine Manager
 
 ```
-sudo apt install ssh-askpass virt-manager
+sudo apt install ssh-askpass virt-manager -y
 ```
