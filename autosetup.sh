@@ -8,6 +8,7 @@
 # |______|______\____/|_|  |_|_____|_| \_|
 set -e
 
+
 # --- Configuration ---
 USER_NAME="MinhTD"
 USER_EMAIL="tranminhsvp@gmail.com"
@@ -48,7 +49,6 @@ APT_PACKAGES=(
     "fish"
     "btop"
     "neofetch"
-    "notion"
 )
 
 FLATPAK_PACKAGES=(
@@ -62,9 +62,10 @@ FLATPAK_PACKAGES=(
 )
 
 # --- Helper Functions ---
-log_info() { echo "[$(date '+%H:%M:%S')] >> $1"; }
+log_info() { echo "💬 [$(date '+%H:%M:%S')] $1"; }
 log_success() { echo "✅ $1"; }
 log_warning() { echo "⚠️ $1"; }
+log_error() { echo "❌ $1"; } # Added for error messages
 
 is_installed() {
     command -v "$1" &>/dev/null || dpkg -s "$1" &>/dev/null
@@ -72,84 +73,103 @@ is_installed() {
 
 # Install Fastfetch
 install_fastfetch(){
-    sudo add-apt-repository ppa:zhangsongcui3371/fastfetch -y
-    sudo apt install fastfetch -y
+    log_info "Adding Fastfetch PPA and installing..."
+    sudo add-apt-repository ppa:zhangsongcui3371/fastfetch -y && \
+    sudo apt update && \
+    sudo apt install fastfetch -y && \
+    log_success "Fastfetch installed successfully." || log_error "Failed to install Fastfetch."
 }
 
 install_software() {
     local name="$1"
     if ! is_installed "$name"; then
-        sudo apt install -y "$name" && log_success "Đã cài đặt '$name'." || log_warning "Cài đặt '$name' thất bại."
+        log_info "Installing '$name'..."
+        sudo apt install -y "$name" && log_success "Successfully installed '$name'." || log_error "Failed to install '$name'."
     else
-        log_info "'$name' đã được cài đặt, bỏ qua."
+        log_info "'$name' is already installed, skipping."
     fi
 }
 
 configure_git() {
+    log_info "Configuring Git user name and email."
     git config --global user.name "$USER_NAME"
     git config --global user.email "$USER_EMAIL"
+    log_success "Git configured."
+
     if [ ! -f "$SSH_KEY_FILE" ]; then
-        log_info "Tạo SSH key mới..."
+        log_info "Generating new SSH key..."
         ssh-keygen -t ed25519 -C "$USER_EMAIL" -f "$SSH_KEY_FILE" -N ""
-        log_success "Đã tạo SSH key."
+        log_success "SSH key generated."
     else
-        log_info "SSH key đã tồn tại, bỏ qua."
+        log_info "SSH key already exists, skipping."
     fi
 }
 
 configure_warp() {
-    # Add Cloudflare GPG key nếu chưa tồn tại
+    # Add Cloudflare GPG key if it doesn't exist
     if [ ! -f /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg ]; then
-        log_info "Đang thêm GPG key của Cloudflare Warp..."
-        curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | sudo gpg --yes --dearmor -o /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
+        log_info "Adding Cloudflare Warp GPG key..."
+        # Note: The GPG key might require specific permissions or a different path
+        # depending on your apt configuration.
+        curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | sudo gpg --yes --dearmor -o /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg && \
+        log_success "Cloudflare Warp GPG key added." || log_error "Failed to add Cloudflare Warp GPG key."
+    else
+        log_info "Cloudflare Warp GPG key already exists, skipping."
     fi
 
-
     # Add this repo to your apt repositories
-    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ bookworm main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list
+    local codename=$(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
+    log_info "Adding Cloudflare Warp repository for $codename..."
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $codename main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list >/dev/null && \
+    log_success "Cloudflare Warp repository added." || log_error "Failed to add Cloudflare Warp repository."
 
+    # Update and install
+    log_info "Updating APT and installing Cloudflare Warp..."
+    sudo apt-get update && sudo apt-get install -y cloudflare-warp && \
+    log_success "Cloudflare Warp installed." || log_error "Failed to install Cloudflare Warp."
 
-    # Install
-    sudo apt-get update && sudo apt-get install cloudflare-warp
+    # Delete old registration if it exists
+    log_info "Deleting old Warp registration (if any)..."
+    warp-cli registration delete || true # '|| true' to prevent script from exiting if delete fails
 
-    # Xóa đăng ký cũ nếu có
-    log_info "Đang xóa đăng ký Warp cũ (nếu có)..."
-    warp-cli registration delete || true
-    
-    # Đăng ký và kết nối Warp
-    log_info "Đang đăng ký Warp mới..."
-    warp-cli registration new
-    warp-cli connect
+    # Register and connect Warp
+    log_info "Registering new Warp..."
+    warp-cli registration new && \
+    log_success "Warp registered." || log_error "Failed to register Warp."
+
+    log_info "Connecting Warp..."
+    warp-cli connect && \
+    log_success "Warp connected." || log_error "Failed to connect Warp."
 }
 
 clean_apt() {
-    log_info "Dọn dẹp APT..."
+    log_info "Cleaning up APT..."
     sudo apt autoremove -y && sudo apt clean
-    log_success "Đã dọn dẹp xong."
+    log_success "APT cleanup completed."
 }
 
 install_zsh() {
     if ! command -v zsh &>/dev/null; then
-        log_info "Cài đặt Zsh..."
-        sudo apt install -y zsh && log_success "Đã cài Zsh." || log_warning "Cài Zsh thất bại."
+        log_info "Installing Zsh..."
+        sudo apt install -y zsh && log_success "Zsh installed." || log_error "Failed to install Zsh."
     else
-        log_info "Zsh đã có, bỏ qua."
+        log_info "Zsh is already installed, skipping."
     fi
 
     if [ ! -d "$HOME/.oh-my-zsh" ]; then
-        log_info "Cài đặt Oh My Zsh..."
-        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended && log_success "Đã cài Oh My Zsh."
+        log_info "Installing Oh My Zsh..."
+        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended && log_success "Oh My Zsh installed." || log_error "Failed to install Oh My Zsh."
     else
-        log_info "Oh My Zsh đã có, bỏ qua."
+        log_info "Oh My Zsh is already installed, skipping."
     fi
 
     local real_user="${SUDO_USER:-$USER}"
     if [ "$SHELL" != "/usr/bin/zsh" ]; then
-        log_info "Đổi shell mặc định sang Zsh..."
-        sudo chsh -s "$(which zsh)" "$real_user"
-        log_success "Đã đổi shell mặc định sang Zsh (đăng xuất để áp dụng)."
+        log_info "Changing default shell to Zsh..."
+        sudo chsh -s "$(which zsh)" "$real_user" && \
+        log_success "Default shell changed to Zsh (log out to apply)." || log_error "Failed to change default shell to Zsh."
     else
-        log_info "Shell mặc định đã là Zsh."
+        log_info "Default shell is already Zsh."
     fi
 }
 
@@ -165,69 +185,69 @@ install_zsh_plugins() {
     for name in "${!plugins[@]}"; do
         local dir="$plugins_dir/$name"
         if [ ! -d "$dir" ]; then
-            log_info "Cài plugin $name..."
-            git clone "${plugins[$name]}" "$dir" && log_success "Đã cài $name." || log_warning "Cài $name thất bại."
+            log_info "Installing Zsh plugin: $name..."
+            git clone "${plugins[$name]}" "$dir" && log_success "Plugin '$name' installed." || log_error "Failed to install plugin '$name'."
         else
-            log_info "$name đã được cài, bỏ qua."
+            log_info "Zsh plugin '$name' is already installed, skipping."
         fi
     done
 
-    log_info "⚠️ Nhớ thêm 'zsh-autosuggestions zsh-syntax-highlighting zsh-completions' vào plugins trong ~/.zshrc"
+    log_warning "Remember to add 'zsh-autosuggestions zsh-syntax-highlighting zsh-completions' to your plugins in ~/.zshrc"
 }
 
 install_nerdfont() {
     mkdir -p ~/.local/share/fonts
     if fc-list | grep -i "JetBrainsMono" &>/dev/null; then
-        log_info "Font JetBrainsMono đã được cài đặt, bỏ qua."
+        log_info "JetBrainsMono font is already installed, skipping."
     else
-        log_info "Đang tải và cài đặt font JetBrainsMono..."
-        wget -O ~/.local/share/fonts/JetBrainsMono.zip https://github.com/ryanoasis/nerd-fonts/releases/download/v3.0.2/JetBrainsMono.zip &&
-            cd ~/.local/share/fonts &&
-            unzip -o JetBrainsMono.zip &&
-            rm JetBrainsMono.zip &&
-            fc-cache -fv
-
-        log_success "Đã cài đặt font JetBrainsMono thành công."
+        log_info "Downloading and installing JetBrainsMono font..."
+        wget -O ~/.local/share/fonts/JetBrainsMono.zip https://github.com/ryanoasis/nerd-fonts/releases/download/v3.0.2/JetBrainsMono.zip && \
+        cd ~/.local/share/fonts && \
+        unzip -o JetBrainsMono.zip && \
+        rm JetBrainsMono.zip && \
+        fc-cache -fv && \
+        log_success "JetBrainsMono font installed successfully." || log_error "Failed to install JetBrainsMono font."
     fi
 }
 
 install_docker() {
     if command -v docker &>/dev/null; then
-        echo "✅ Docker is already installed. Skipping installation."
+        log_success "Docker is already installed. Skipping installation."
         return
     fi
 
-    echo "🚀 Installing Docker..."
+    log_info "Installing Docker..."
 
-    # Cập nhật và cài đặt các gói cần thiết
-    sudo apt-get update
-    sudo apt-get install -y ca-certificates curl
+    # Update and install necessary packages
+    sudo apt-get update && sudo apt-get install -y ca-certificates curl && \
+    log_success "Docker prerequisites installed." || log_error "Failed to install Docker prerequisites."
 
-    # Tạo thư mục chứa keyrings nếu chưa có
+    # Create keyrings directory if it doesn't exist
     sudo install -m 0755 -d /etc/apt/keyrings
 
-    # Tải và thiết lập quyền cho Docker GPG key
-    sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-    sudo chmod a+r /etc/apt/keyrings/docker.asc
+    # Download and set permissions for Docker GPG key
+    sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc && \
+    sudo chmod a+r /etc/apt/keyrings/docker.asc && \
+    log_success "Docker GPG key added." || log_error "Failed to add Docker GPG key."
 
-    # Thêm Docker repository vào sources list
+    # Add Docker repository to sources list
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
-  https://download.docker.com/linux/ubuntu \
-  $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" |
-        sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
+    https://download.docker.com/linux/ubuntu \
+    $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
+    sudo tee /etc/apt/sources.list.d/docker.list >/dev/null && \
+    log_success "Docker repository added." || log_error "Failed to add Docker repository."
 
-    # Cập nhật và cài đặt Docker
-    sudo apt-get update
-    sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
-    echo "✅ Docker installation completed."
+    # Update and install Docker
+    sudo apt-get update && sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin && \
+    log_success "Docker installation completed." || log_error "Failed to install Docker."
 }
 
 set_default_shell() {
     local current_shell=$(getent passwd "$USER" | cut -d: -f7)
     if [ "$current_shell" != "$FISH_SHELL" ]; then
         log_info "Changing default shell to fish for user $USER..."
-        sudo chsh -s "$FISH_SHELL" "$USER"
+        sudo chsh -s "$FISH_SHELL" "$USER" && \
+        log_success "Default shell changed to Fish (log out to apply)." || log_error "Failed to change default shell to Fish."
     else
         log_info "Default shell is already fish."
     fi
@@ -235,18 +255,21 @@ set_default_shell() {
 
 install_fisher() {
     if ! fish -c "type -q fisher"; then
-        log_info "Installing fisher..."
-        fish -c 'curl -sL https://git.io/fisher | source && fisher install jorgebucaran/fisher'
+        log_info "Installing Fisher (Fish plugin manager)..."
+        fish -c 'curl -sL https://git.io/fisher | source && fisher install jorgebucaran/fisher' && \
+        log_success "Fisher installed." || log_error "Failed to install Fisher."
     else
         log_info "Fisher is already installed, skipping."
     fi
 }
 
 install_fish_plugins() {
+    log_info "Installing Fish plugins..."
     for plugin in "${FISH_PLUGINS[@]}"; do
         if ! fish -c "fisher list | grep -q '$plugin'"; then
             log_info "Installing Fish plugin: $plugin"
-            fish -c "fisher install $plugin"
+            fish -c "fisher install $plugin" && \
+            log_success "Fish plugin '$plugin' installed." || log_error "Failed to install Fish plugin '$plugin'."
         else
             log_info "Fish plugin '$plugin' is already installed."
         fi
@@ -254,38 +277,42 @@ install_fish_plugins() {
 }
 
 install_lazydocker() {
-    curl https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh | bash
+    log_info "Installing Lazydocker..."
+    curl https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh | bash && \
+    log_success "Lazydocker installed." || log_error "Failed to install Lazydocker."
 
-    # echo "alias lzd='sudo docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock -v ~/.config/jesseduffield/lazydocker lazyteam/lazydocker'" >>~/.config/fish/config.fish
-    # Tạo thư mục config nếu chưa có
+    # Create config directory if not exists
     mkdir -p "$FISH_CONFIG_DIR"
 
-    # Alias cho LazyDocker dùng container
+    # Alias for LazyDocker using container
     local alias_line="alias lzd='sudo docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock -v ~/.config/jesseduffield/lazydocker lazyteam/lazydocker'"
 
-    # Tránh thêm trùng lặp
+    # Avoid adding duplicates
     grep -qxF "$alias_line" "$FISH_CONFIG_FILE" || echo "$alias_line" >>"$FISH_CONFIG_FILE"
-
     log_success "Alias for LazyDocker added to Fish config."
-
 }
 
 clone_wallpaper() {
-    cd ~/Pictures # You can also choose a different location
-    git clone --depth=1 https://github.com/Leomin07/wallpaper.git ~/Pictures/wallpaper
-    cd wallpaper/
+    log_info "Cloning wallpaper repository..."
+    if [ ! -d "~/Pictures/wallpaper" ]; then # Check if directory exists before cloning
+        cd ~/Pictures # You can also choose a different location
+        git clone --depth=1 https://github.com/Leomin07/wallpaper.git ~/Pictures/wallpaper && \
+        log_success "Wallpaper repository cloned to ~/Pictures/wallpaper." || log_error "Failed to clone wallpaper repository."
+    else
+        log_info "Wallpaper repository already exists in ~/Pictures/wallpaper, skipping clone."
+    fi
 }
 
-
 install_starship() {
-    echo "[INFO] Installing Starship prompt..."
+    log_info "Installing Starship prompt..."
 
     # Install Starship if not already installed
     if ! command -v starship &>/dev/null; then
-        echo "[INFO] Starship not found. Downloading and installing..."
-        curl -sS https://starship.rs/install.sh | sh -s -- -y
+        log_info "Starship not found. Downloading and installing..."
+        curl -sS https://starship.rs/install.sh | sh -s -- -y && \
+        log_success "Starship installed successfully." || log_error "Failed to install Starship."
     else
-        echo "[INFO] Starship is already installed. Skipping installation."
+        log_info "Starship is already installed. Skipping installation."
     fi
 
     # Function to append init command if not already present
@@ -296,9 +323,9 @@ install_starship() {
 
         if ! grep -Fxq "$init_cmd" "$shell_rc"; then
             echo "$init_cmd" >>"$shell_rc"
-            echo "[INFO] Added Starship init to $shell_rc"
+            log_info "Added Starship init to $shell_rc"
         else
-            echo "[INFO] Starship init already exists in $shell_rc. Skipping."
+            log_info "Starship init already exists in $shell_rc. Skipping."
         fi
     }
 
@@ -313,30 +340,30 @@ install_starship() {
     mkdir -p "$(dirname "$fish_config")"
     if ! grep -Fxq "$fish_init_cmd" "$fish_config"; then
         echo "$fish_init_cmd" >>"$fish_config"
-        echo "[INFO] Added Starship init to $fish_config"
+        log_info "Added Starship init to $fish_config"
     else
-        echo "[INFO] Starship init already exists in $fish_config. Skipping."
+        log_info "Starship init already exists in $fish_config. Skipping."
     fi
 
-    echo "[INFO] Starship setup completed."
+    log_success "Starship setup completed."
 }
 
 install_vscode() {
-    sudo apt-get install wget gpg -y
-    wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor >packages.microsoft.gpg
-    sudo install -D -o root -g root -m 644 packages.microsoft.gpg /etc/apt/keyrings/packages.microsoft.gpg
-    echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" | sudo tee /etc/apt/sources.list.d/vscode.list >/dev/null
-    rm -f packages.microsoft.gpg
-
-    sudo apt install apt-transport-https -y
-    sudo apt update -y
-    sudo apt install code -y
-
+    log_info "Installing VS Code..."
+    sudo apt-get install -y wget gpg && \
+    wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor >packages.microsoft.gpg && \
+    sudo install -D -o root -g root -m 644 packages.microsoft.gpg /etc/apt/keyrings/packages.microsoft.gpg && \
+    echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" | sudo tee /etc/apt/sources.list.d/vscode.list >/dev/null && \
+    rm -f packages.microsoft.gpg && \
+    sudo apt install -y apt-transport-https && \
+    sudo apt update -y && \
+    sudo apt install -y code && \
+    log_success "VS Code installed successfully." || log_error "Failed to install VS Code."
 }
 
 # Configure fcitx5 input method for Vietnamese typing
 configure_fcitx5() {
-    log_info "Configuring fcitx5..."
+    log_info "Configuring fcitx5 (Vietnamese input method)..."
 
     # Install required packages
     local fcitx5_packages=(fcitx5 fcitx5-frontend-gtk3 fcitx5-configtool fcitx5-bamboo)
@@ -363,27 +390,37 @@ configure_fcitx5() {
     log_success "Fcitx5 configured."
 }
 
+sync_keybindings(){
+    log_info "Loading custom keybindings configuration..."
+    dconf load /org/cinnamon/desktop/keybindings/ <~/linux-mint/keybindings_config.dconf
+
+}
+
 # --- Main ---
 
-log_info "Cập nhật APT..."
-sudo apt update
+log_info "Updating APT packages list..."
+sudo apt update || log_error "Failed to update APT packages list."
 
 if ! command -v flatpak &>/dev/null; then
-    log_info "Cài đặt Flatpak..."
-    sudo apt install -y flatpak
-    sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+    log_info "Installing Flatpak..."
+    sudo apt install -y flatpak && \
+    sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo && \
+    log_success "Flatpak installed and Flathub added." || log_error "Failed to install Flatpak or add Flathub."
+else
+    log_info "Flatpak is already installed, skipping."
 fi
 
 for pkg in "${APT_PACKAGES[@]}"; do
-    install_software "$pkg" "apt"
+    install_software "$pkg"
 done
 
 for flatpak_pkg in "${FLATPAK_PACKAGES[@]}"; do
     if ! flatpak list --app | grep -q "$flatpak_pkg"; then
-        log_info "Cài đặt Flatpak app: $flatpak_pkg"
-        flatpak install -y flathub "$flatpak_pkg"
+        log_info "Installing Flatpak app: $flatpak_pkg"
+        flatpak install -y flathub "$flatpak_pkg" && \
+        log_success "Flatpak app '$flatpak_pkg' installed." || log_error "Failed to install Flatpak app '$flatpak_pkg'."
     else
-        log_info "$flatpak_pkg đã được cài đặt qua Flatpak, bỏ qua."
+        log_info "Flatpak app '$flatpak_pkg' is already installed, skipping."
     fi
 done
 
@@ -391,37 +428,40 @@ set_default_shell
 install_fisher
 install_fish_plugins
 configure_git
-install_lazydocker
 install_starship
-install_fastfetch
 
-read -p "Ban co muon cai dat VSCode khong? (y/n): " install_vscode
-[[ "$install_vscode" =~ ^[Yy]$ ]] && install_vscode || log_info "Bo qua VSCode."
 
-read -p "Ban co muon cai dat lazydocker khong? (y/n): " install_lazydocker
-[[ "$install_lazydocker" =~ ^[Yy]$ ]] && install_lazydocker || log_info "Bo qua lazydocker."
+read -p "Do you want to install Fastfetch? (y/n): " install_fastfetch_answer
+[[ "$install_fastfetch_answer" =~ ^[Yy]$ ]] && install_fastfetch || log_info "Skipping Fastfetch installation."
 
-read -p "Ban co muon cai dat Warp khong? (y/n): " warp_answer
-[[ "$warp_answer" =~ ^[Yy]$ ]] && configure_warp || log_info "Bo qua Warp."
+read -p "Do you want to install VSCode? (y/n): " install_vscode_answer
+[[ "$install_vscode_answer" =~ ^[Yy]$ ]] && install_vscode || log_info "Skipping VSCode installation."
 
-read -p "Ban co muon cai Nerd Font khong? (y/n): " font_answer
-[[ "$font_answer" =~ ^[Yy]$ ]] && install_nerdfont || log_info "Bo qua font."
+read -p "Do you want to install Lazydocker? (y/n): " install_lazydocker_answer
+[[ "$install_lazydocker_answer" =~ ^[Yy]$ ]] && install_lazydocker || log_info "Skipping Lazydocker installation."
 
-read -p "Ban co muon cai Docker khong? (y/n): " docker_answer
-[[ "$docker_answer" =~ ^[Yy]$ ]] && install_docker || log_info "Bo qua Docker."
+read -p "Do you want to install Warp? (y/n): " warp_answer
+[[ "$warp_answer" =~ ^[Yy]$ ]] && configure_warp || log_info "Skipping Warp installation."
 
-read -p "Ban co muon cai fcitx5 khong? (y/n): " configure_fcitx5
-[[ "$configure_fcitx5" =~ ^[Yy]$ ]] && configure_fcitx5 || log_info "Bo qua configure_fcitx5."
+read -p "Do you want to install Nerd Font (JetBrainsMono)? (y/n): " font_answer
+[[ "$font_answer" =~ ^[Yy]$ ]] && install_nerdfont || log_info "Skipping font installation."
 
-read -p "Bạn có muốn clone bộ hình nền không? (y/n): " clone_answer
+read -p "Do you want to install Docker? (y/n): " docker_answer
+[[ "$docker_answer" =~ ^[Yy]$ ]] && install_docker || log_info "Skipping Docker installation."
+
+read -p "Do you want to configure fcitx5 for Vietnamese typing? (y/n): " configure_fcitx5_answer
+[[ "$configure_fcitx5_answer" =~ ^[Yy]$ ]] && configure_fcitx5 || log_info "Skipping fcitx5 configuration."
+
+read -p "Do you want to clone the wallpaper repository? (y/n): " clone_answer
 if [[ "$clone_answer" =~ ^[Yy]$ ]]; then
     clone_wallpaper
 else
-    log_info "Bỏ qua bước clone wallpaper."
+    log_info "Skipping wallpaper cloning step."
 fi
 
-dconf load /org/cinnamon/desktop/keybindings/ <~/linux-mint/keybindings_config.dconf
+read -p "Do you want to load custom keybindings config? (y/n): " sync_keybindings_answer
+[[ "$sync_keybindings_answer" =~ ^[Yy]$ ]] && sync_keybindings || log_info "Skipping custom keybindings configuration."
 
 clean_apt
 
-log_success "🎉 Thiết lập môi trường hoàn tất!"
+log_success "🎉 Environment setup completed!"
