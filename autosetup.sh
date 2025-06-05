@@ -50,10 +50,7 @@ APT_PACKAGES=(
     "fish"
     "btop"
     "neofetch"
-<<<<<<< HEAD
     "kdenlive"
-=======
->>>>>>> 6f685ee54db557c66b6b37b3eaeefb68428ad419
 )
 
 FLATPAK_PACKAGES=(
@@ -308,6 +305,31 @@ clone_wallpaper() {
     fi
 }
 
+config_zoxide() {
+    local bashrc="$HOME/.bashrc"
+    local fish_config="$HOME/.config/fish/config.fish"
+    local bash_init='eval "$(zoxide init bash)"'
+    local fish_init='zoxide init fish | source'
+
+    # Add to Bash config
+    if [ -f "$bashrc" ] && ! grep -Fxq "$bash_init" "$bashrc"; then
+        echo "$bash_init" >> "$bashrc"
+        echo "[✔] Added zoxide init to $bashrc"
+    else
+        echo "[✔] zoxide already configured in $bashrc or file not found"
+    fi
+
+    # Add to Fish config
+    if [ -f "$fish_config" ] && ! grep -Fxq "$fish_init" "$fish_config"; then
+        echo "$fish_init" >> "$fish_config"
+        echo "[✔] Added zoxide init to $fish_config"
+    else
+        echo "[✔] zoxide already configured in $fish_config or file not found"
+    fi
+}
+
+
+
 install_starship() {
     log_info "Installing Starship prompt..."
 
@@ -434,7 +456,7 @@ install_fisher
 install_fish_plugins
 configure_git
 install_starship
-
+config_zoxide
 
 read -p "Do you want to install Fastfetch? (y/n): " install_fastfetch_answer
 [[ "$install_fastfetch_answer" =~ ^[Yy]$ ]] && install_fastfetch || log_info "Skipping Fastfetch installation."
