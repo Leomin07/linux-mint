@@ -38,6 +38,7 @@ APT_PACKAGES=(
     "ffmpeg"
     "bat"
     "fzf"
+    "zoxide"
     "vim"
     "neovim"
     "kitty"
@@ -49,6 +50,10 @@ APT_PACKAGES=(
     "fish"
     "btop"
     "neofetch"
+<<<<<<< HEAD
+    "kdenlive"
+=======
+>>>>>>> 6f685ee54db557c66b6b37b3eaeefb68428ad419
 )
 
 FLATPAK_PACKAGES=(
