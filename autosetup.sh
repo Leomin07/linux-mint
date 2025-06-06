@@ -31,9 +31,7 @@ APT_PACKAGES=(
     "python3-pip"
     "python3-tk"
     "python3-venv"
-    "nodejs"
-    "yarn"
-    "npm"
+    "python3-neovim"
     "dotnet-sdk-8.0"
     "ffmpeg"
     "bat"
@@ -153,21 +151,32 @@ clean_apt() {
 install_zsh() {
     if ! command -v zsh &>/dev/null; then
         log_info "Installing Zsh..."
-        sudo apt install -y zsh && log_success "Zsh installed." || log_error "Failed to install Zsh."
+        sudo apt install -y zsh && log_success "Zsh installed." || {
+            log_error "Failed to install Zsh."
+            return 1
+        }
     else
         log_info "Zsh is already installed, skipping."
     fi
 
     if [ ! -d "$HOME/.oh-my-zsh" ]; then
         log_info "Installing Oh My Zsh..."
-        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended && log_success "Oh My Zsh installed." || log_error "Failed to install Oh My Zsh."
+        RUNZSH=no CHSH=no KEEP_ZSHRC=yes \
+        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" && \
+        log_success "Oh My Zsh installed." || {
+            log_error "Failed to install Oh My Zsh."
+            return 1
+        }
     else
         log_info "Oh My Zsh is already installed, skipping."
     fi
 
     local real_user="${SUDO_USER:-$USER}"
-    if [ "$SHELL" != "/usr/bin/zsh" ]; then
-        log_info "Changing default shell to Zsh..."
+    local current_shell
+    current_shell="$(getent passwd "$real_user" | cut -d: -f7)"
+
+    if [ "$current_shell" != "$(which zsh)" ]; then
+        log_info "Changing default shell to Zsh for user $real_user..."
         sudo chsh -s "$(which zsh)" "$real_user" && \
         log_success "Default shell changed to Zsh (log out to apply)." || log_error "Failed to change default shell to Zsh."
     else
@@ -180,7 +189,7 @@ install_zsh_plugins() {
 
     declare -A plugins=(
         ["zsh-autosuggestions"]="https://github.com/zsh-users/zsh-autosuggestions"
-        ["zsh-syntax-highlighting"]="https://github.com/zsh-users/zsh-syntax-highlighting.git"
+        ["zsh-syntax-highlighting"]="https://github.com/zsh-users/zsh-syntax-highlighting"
         ["zsh-completions"]="https://github.com/zsh-users/zsh-completions"
     )
 
@@ -194,8 +203,26 @@ install_zsh_plugins() {
         fi
     done
 
-    log_warning "Remember to add 'zsh-autosuggestions zsh-syntax-highlighting zsh-completions' to your plugins in ~/.zshrc"
+    log_warning "📌 Add the following plugins to your ~/.zshrc: plugins=(git zsh-autosuggestions zsh-syntax-highlighting zsh-completions z docker docker-compose)"
 }
+
+config_zsh_plugins() {
+    local zshrc="$HOME/.zshrc"
+    local desired_plugins="plugins=(git zsh-autosuggestions zsh-syntax-highlighting zsh-completions z docker docker-compose)"
+
+    if grep -qE '^plugins=\(.*\)' "$zshrc"; then
+        log_info "Updating plugins list in ~/.zshrc..."
+        sed -i 's/^plugins=(.*)/'"$desired_plugins"'/' "$zshrc" && \
+        log_success "Updated plugins in ~/.zshrc." || \
+        log_error "Failed to update plugins in ~/.zshrc."
+    else
+        log_info "Adding plugins list to ~/.zshrc..."
+        echo "$desired_plugins" >> "$zshrc" && \
+        log_success "Added plugins to ~/.zshrc." || \
+        log_error "Failed to add plugins to ~/.zshrc."
+    fi
+}
+
 
 install_nerdfont() {
     mkdir -p ~/.local/share/fonts
@@ -278,21 +305,115 @@ install_fish_plugins() {
     done
 }
 
+
+# install_lazydocker() {
+#     log_info "Installing Lazydocker..."
+#     curl https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh | bash && \
+#     log_success "Lazydocker installed." || log_error "Failed to install Lazydocker."
+
+#     # Create config directory if not exists
+#     mkdir -p "$FISH_CONFIG_DIR"
+
+#     # Alias for LazyDocker using container
+#     local alias_line="alias lzd='sudo docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock -v ~/.config/jesseduffield/lazydocker lazyteam/lazydocker'"
+
+#     # Avoid adding duplicates
+#     grep -qxF "$alias_line" "$FISH_CONFIG_FILE" || echo "$alias_line" >>"$FISH_CONFIG_FILE"
+#     log_success "Alias for LazyDocker added to Fish config."
+# }
+
+
 install_lazydocker() {
-    log_info "Installing Lazydocker..."
-    curl https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh | bash && \
-    log_success "Lazydocker installed." || log_error "Failed to install Lazydocker."
+    log_info "Starting Lazydocker installation/configuration."
 
-    # Create config directory if not exists
-    mkdir -p "$FISH_CONFIG_DIR"
+    local current_shell=$(basename "$SHELL")
+    local lazydocker_binary_found="false"
+    local lzd_alias_configured="false" # Tracks if the alias was successfully added/found in the config file
 
-    # Alias for LazyDocker using container
-    local alias_line="alias lzd='sudo docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock -v ~/.config/jesseduffield/lazydocker lazyteam/lazydocker'"
+    # --- 1. Check if Lazydocker binary is already installed ---
+    if command -v lazydocker >/dev/null 2>&1; then
+        log_info "Lazydocker binary already found in PATH. Skipping direct installation."
+        lazydocker_binary_found="true"
+    else
+        log_info "Lazydocker binary not found. Attempting installation from jesseduffield/lazydocker script."
+        curl https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh | bash
+        local install_status=$? # Capture the exit status of the curl|bash pipeline
+        
+        if [ $install_status -eq 0 ] && command -v lazydocker >/dev/null 2>&1; then
+            log_success "Lazydocker binary installed successfully."
+            lazydocker_binary_found="true"
+        else
+            log_error "Failed to install Lazydocker binary. Please ensure Docker is running and you have necessary permissions."
+        fi
+    fi
 
-    # Avoid adding duplicates
-    grep -qxF "$alias_line" "$FISH_CONFIG_FILE" || echo "$alias_line" >>"$FISH_CONFIG_FILE"
-    log_success "Alias for LazyDocker added to Fish config."
+    # Exit early if binary installation failed and no binary is found
+    if [ "$lazydocker_binary_found" = "false" ]; then
+        log_error "Lazydocker binary is not available. Cannot proceed with alias configuration."
+        return 1 # Indicate failure
+    fi
+
+    # --- 2. Check and configure alias for the current shell ---
+    # Prepare alias content based on shell type
+    local alias_docker_run_cmd="sudo docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock -v ~/.config/jesseduffield/lazydocker lazyteam/lazydocker"
+    local fish_alias_content="function lzd\n  ${alias_docker_run_cmd}\nend"
+    local bash_zsh_alias_line="alias lzd='${alias_docker_run_cmd}'"
+
+    if [ "$current_shell" = "fish" ]; then
+        log_info "Configuring 'lzd' alias for Fish shell."
+        local FISH_FUNCTIONS_DIR="$HOME/.config/fish/functions"
+        local FISH_CONFIG_FILE="$FISH_FUNCTIONS_DIR/lzd.fish"
+
+        mkdir -p "$FISH_FUNCTIONS_DIR" # Ensure directory exists
+
+        if grep -qxF "$fish_alias_content" "$FISH_CONFIG_FILE"; then
+            log_info "Alias 'lzd' already found in Fish config file: $FISH_CONFIG_FILE. Skipping addition."
+            lzd_alias_configured="true"
+        else
+            echo "$fish_alias_content" > "$FISH_CONFIG_FILE" # Overwrite/create new file for the function
+            log_success "Alias 'lzd' added to Fish config: $FISH_CONFIG_FILE."
+            lzd_alias_configured="true"
+        fi
+
+    elif [ "$current_shell" = "zsh" ] || [ "$current_shell" = "bash" ]; then
+        log_info "Configuring 'lzd' alias for $current_shell shell."
+        local SHELL_CONFIG_FILE # Dynamic assignment
+        if [ "$current_shell" = "zsh" ]; then
+            SHELL_CONFIG_FILE="$HOME/.zshrc"
+        else
+            SHELL_CONFIG_FILE="$HOME/.bashrc"
+        fi
+
+        if grep -qxF "$bash_zsh_alias_line" "$SHELL_CONFIG_FILE"; then
+            log_info "Alias 'lzd' already found in $current_shell config file: $SHELL_CONFIG_FILE. Skipping addition."
+            lzd_alias_configured="true"
+        else
+            echo "$bash_zsh_alias_line" >> "$SHELL_CONFIG_FILE"
+            log_success "Alias 'lzd' added to $current_shell config: $SHELL_CONFIG_FILE."
+            lzd_alias_configured="true"
+        fi
+    else
+        log_warning "Unsupported shell: $current_shell. Cannot automatically configure 'lzd' alias."
+    fi
+
+    # --- Final instructions ---
+    if [ "$lzd_alias_configured" = "true" ]; then
+        log_info "Lazydocker setup is complete. You can now type 'lzd' to run Lazydocker."
+        log_info "Please restart your terminal or 'source' your shell config file (e.g., 'source ~/.zshrc') for the 'lzd' command to take effect in this session."
+    else
+        log_warning "Lazydocker binary is installed, but the 'lzd' alias could not be configured automatically for your shell."
+        log_info "You might need to add the following line manually to your shell's config file (e.g., ~/.bashrc, ~/.zshrc, or ~/.config/fish/functions/lzd.fish):"
+        if [ "$current_shell" = "fish" ]; then
+            echo "  function lzd; ${alias_docker_run_cmd}; end"
+        else
+            echo "  alias lzd='${alias_docker_run_cmd}'"
+        fi
+        log_info "Then, restart your terminal or 'source' your shell config file."
+    fi
+
+    return 0 # Indicate success of the function
 }
+
 
 clone_wallpaper() {
     log_info "Cloning wallpaper repository..."
@@ -307,8 +428,11 @@ clone_wallpaper() {
 
 config_zoxide() {
     local bashrc="$HOME/.bashrc"
+    local zshrc="$HOME/.zshrc"
     local fish_config="$HOME/.config/fish/config.fish"
+
     local bash_init='eval "$(zoxide init bash)"'
+    local zsh_init='eval "$(zoxide init zsh)"'
     local fish_init='zoxide init fish | source'
 
     # Add to Bash config
@@ -319,13 +443,21 @@ config_zoxide() {
         echo "[✔] zoxide already configured in $bashrc or file not found"
     fi
 
-    # Add to Fish config
-    if [ -f "$fish_config" ] && ! grep -Fxq "$fish_init" "$fish_config"; then
-        echo "$fish_init" >> "$fish_config"
-        echo "[✔] Added zoxide init to $fish_config"
+    # Add to Zsh config
+    if [ -f "$zshrc" ] && ! grep -Fxq "$zsh_init" "$zshrc"; then
+        echo "$zsh_init" >> "$zshrc"
+        echo "[✔] Added zoxide init to $zshrc"
     else
-        echo "[✔] zoxide already configured in $fish_config or file not found"
+        echo "[✔] zoxide already configured in $zshrc or file not found"
     fi
+
+    # Add to Fish config
+    # if [ -f "$fish_config" ] && ! grep -Fxq "$fish_init" "$fish_config"; then
+    #     echo "$fish_init" >> "$fish_config"
+    #     echo "[✔] Added zoxide init to $fish_config"
+    # else
+    #     echo "[✔] zoxide already configured in $fish_config or file not found"
+    # fi
 }
 
 
@@ -357,23 +489,25 @@ install_starship() {
     }
 
     # Configure for bash
-    if [ -f ~/.bashrc ]; then
-        add_starship_init ~/.bashrc bash
-    fi
+    [ -f ~/.bashrc ] && add_starship_init ~/.bashrc bash
+
+    # Configure for zsh
+    [ -f ~/.zshrc ] && add_starship_init ~/.zshrc zsh
 
     # Configure for fish
-    fish_config="$HOME/.config/fish/config.fish"
-    fish_init_cmd='starship init fish | source'
-    mkdir -p "$(dirname "$fish_config")"
-    if ! grep -Fxq "$fish_init_cmd" "$fish_config"; then
-        echo "$fish_init_cmd" >>"$fish_config"
-        log_info "Added Starship init to $fish_config"
-    else
-        log_info "Starship init already exists in $fish_config. Skipping."
-    fi
+    # fish_config="$HOME/.config/fish/config.fish"
+    # fish_init_cmd='starship init fish | source'
+    # mkdir -p "$(dirname "$fish_config")"
+    # if ! grep -Fxq "$fish_init_cmd" "$fish_config"; then
+    #     echo "$fish_init_cmd" >>"$fish_config"
+    #     log_info "Added Starship init to $fish_config"
+    # else
+    #     log_info "Starship init already exists in $fish_config. Skipping."
+    # fi
 
-    log_success "Starship setup completed."
+    # log_success "Starship setup completed."
 }
+
 
 install_vscode() {
     log_info "Installing VS Code..."
@@ -389,6 +523,34 @@ install_vscode() {
 }
 
 # Configure fcitx5 input method for Vietnamese typing
+# configure_fcitx5() {
+#     log_info "Configuring fcitx5 (Vietnamese input method)..."
+
+#     # Install required packages
+#     local fcitx5_packages=(fcitx5 fcitx5-frontend-gtk3 fcitx5-configtool fcitx5-bamboo)
+#     for pkg in "${fcitx5_packages[@]}"; do install_software "$pkg"; done
+
+#     mkdir -p "$FISH_CONFIG_DIR"
+
+#     # Add environment variables to Fish and Bash
+#     local envs_fish=(
+#         'set -gx GTK_IM_MODULE fcitx5'
+#         'set -gx QT_IM_MODULE fcitx5'
+#         'set -gx XMODIFIERS "@im=fcitx5"'
+#     )
+#     local envs_bash=(
+#         'export GTK_IM_MODULE=fcitx5'
+#         'export QT_IM_MODULE=fcitx5'
+#         'export XMODIFIERS="@im=fcitx5"'
+#     )
+
+#     for line in "${envs_fish[@]}"; do grep -qxF "$line" "$FISH_CONFIG_FILE" || echo "$line" >>"$FISH_CONFIG_FILE"; done
+#     for line in "${envs_bash[@]}"; do grep -qxF "$line" "$HOME/.bashrc" || echo "$line" >>"$HOME/.bashrc"; done
+#     grep -q "source ~/.bashrc" "$HOME/.bash_profile" || echo '[[ -f ~/.bashrc ]] && source ~/.bashrc' >>"$HOME/.bash_profile"
+
+#     log_success "Fcitx5 configured."
+# }
+
 configure_fcitx5() {
     log_info "Configuring fcitx5 (Vietnamese input method)..."
 
@@ -396,9 +558,10 @@ configure_fcitx5() {
     local fcitx5_packages=(fcitx5 fcitx5-frontend-gtk3 fcitx5-configtool fcitx5-bamboo)
     for pkg in "${fcitx5_packages[@]}"; do install_software "$pkg"; done
 
-    mkdir -p "$FISH_CONFIG_DIR"
+    # Ensure config directories exist if using separate files for shell config
+    mkdir -p "$HOME/.config/fish" # Ensure Fish config directory exists if not already
 
-    # Add environment variables to Fish and Bash
+    # Environment variables for different shells
     local envs_fish=(
         'set -gx GTK_IM_MODULE fcitx5'
         'set -gx QT_IM_MODULE fcitx5'
@@ -409,12 +572,50 @@ configure_fcitx5() {
         'export QT_IM_MODULE=fcitx5'
         'export XMODIFIERS="@im=fcitx5"'
     )
+    local envs_zsh=(
+        'export GTK_IM_MODULE=fcitx5'
+        'export QT_IM_MODULE=fcitx5'
+        'export XMODIFIERS="@im=fcitx5"'
+    )
 
-    for line in "${envs_fish[@]}"; do grep -qxF "$line" "$FISH_CONFIG_FILE" || echo "$line" >>"$FISH_CONFIG_FILE"; done
-    for line in "${envs_bash[@]}"; do grep -qxF "$line" "$HOME/.bashrc" || echo "$line" >>"$HOME/.bashrc"; done
-    grep -q "source ~/.bashrc" "$HOME/.bash_profile" || echo '[[ -f ~/.bashrc ]] && source ~/.bashrc' >>"$HOME/.bash_profile"
+    # Determine the current shell to decide which config file to primarily target
+    local current_shell=$(basename "$SHELL")
 
-    log_success "Fcitx5 configured."
+    # Add variables to Fish config
+    if [ "$current_shell" = "fish" ]; then
+        log_info "Adding Fcitx5 environment variables to Fish config."
+        local FISH_CONFIG_FILE="$HOME/.config/fish/config.fish" # Main Fish config file
+        for line in "${envs_fish[@]}"; do
+            grep -qxF "$line" "$FISH_CONFIG_FILE" || echo "$line" >>"$FISH_CONFIG_FILE"
+        done
+        log_success "Fcitx5 variables added to Fish config."
+    else
+        # For Bash and Zsh, it's common to source a single file (like .bashrc or .zshrc)
+        # from a login shell config (.profile or .zprofile) for consistency.
+
+        # Add variables to Bash config (~/.bashrc)
+        log_info "Adding Fcitx5 environment variables to Bash config (~/.bashrc)."
+        local BASH_CONFIG_FILE="$HOME/.bashrc"
+        for line in "${envs_bash[@]}"; do
+            grep -qxF "$line" "$BASH_CONFIG_FILE" || echo "$line" >>"$BASH_CONFIG_FILE"
+        done
+        # Ensure .bashrc is sourced from .bash_profile for login shells
+        grep -q '[[ -f ~/.bashrc ]] && source ~/.bashrc' "$HOME/.bash_profile" || echo '[[ -f ~/.bashrc ]] && source ~/.bashrc' >>"$HOME/.bash_profile"
+        log_success "Fcitx5 variables added to Bash config."
+
+        # Add variables to Zsh config (~/.zshrc)
+        log_info "Adding Fcitx5 environment variables to Zsh config (~/.zshrc)."
+        local ZSH_CONFIG_FILE="$HOME/.zshrc"
+        for line in "${envs_zsh[@]}"; do
+            grep -qxF "$line" "$ZSH_CONFIG_FILE" || echo "$line" >>"$ZSH_CONFIG_FILE"
+        done
+        # Ensure .zshrc is sourced from .zprofile for login shells (or .zshenv for all shells)
+        # Choosing .zprofile for login shells, common for .zshrc.
+        grep -q '[[ -f ~/.zshrc ]] && source ~/.zshrc' "$HOME/.zprofile" || echo '[[ -f ~/.zshrc ]] && source ~/.zshrc' >>"$HOME/.zprofile"
+        log_success "Fcitx5 variables added to Zsh config."
+    fi
+
+    log_success "Fcitx5 configuration complete. Please restart your graphical session or reboot for full effect."
 }
 
 sync_keybindings(){
@@ -422,6 +623,21 @@ sync_keybindings(){
     dconf load /org/cinnamon/desktop/keybindings/ <~/linux-mint/keybindings_config.dconf
 
 }
+
+install_nodejs(){
+    # Download and install nvm:
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+
+    # in lieu of restarting the shell
+    \. "$HOME/.nvm/nvm.sh"
+
+    # Download and install Node.js:
+    nvm install --lts
+
+    # Install Yarn
+    npm install --global yarn
+}
+
 
 # --- Main ---
 
@@ -451,12 +667,15 @@ for flatpak_pkg in "${FLATPAK_PACKAGES[@]}"; do
     fi
 done
 
-set_default_shell
-install_fisher
-install_fish_plugins
 configure_git
+install_zsh
+install_zsh_plugins
+config_zsh_plugins
 install_starship
 config_zoxide
+
+read -p "Do you want to install NodeJS? (y/n): " install_nodejs_answer
+[[ "$install_nodejs_answer" =~ ^[Yy]$ ]] && install_nodejs || log_info "Skipping NodeJS installation."
 
 read -p "Do you want to install Fastfetch? (y/n): " install_fastfetch_answer
 [[ "$install_fastfetch_answer" =~ ^[Yy]$ ]] && install_fastfetch || log_info "Skipping Fastfetch installation."
