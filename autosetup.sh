@@ -203,7 +203,7 @@ install_zsh_plugins() {
         fi
     done
 
-    log_warning "📌 Add the following plugins to your ~/.zshrc: plugins=(git zsh-autosuggestions zsh-syntax-highlighting zsh-completions)"
+    log_warning "📌 Add the following plugins to your ~/.zshrc: plugins=(git zsh-autosuggestions zsh-syntax-highlighting zsh-completions z docker docker-compose)"
 }
 
 config_zsh_plugins() {
