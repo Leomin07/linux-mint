@@ -31,12 +31,14 @@ APT_PACKAGES=(
     "python3-pip"
     "python3-tk"
     "python3-venv"
+    "python3-neovim"
     "dotnet-sdk-8.0"
     "ffmpeg"
     "bat"
     "fzf"
     "zoxide"
     "vim"
+    "neovim"
     "kitty"
     "alacritty"
     "mpv"
@@ -636,13 +638,6 @@ install_nodejs(){
     npm install --global yarn
 }
 
-install_nvim(){
-    curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz
-    sudo rm -rf /opt/nvim
-    sudo tar -C /opt -xzf nvim-linux-x86_64.tar.gz
-
-    export PATH="$PATH:/opt/nvim-linux-x86_64/bin"
-}
 
 # --- Main ---
 
@@ -678,8 +673,9 @@ install_zsh_plugins
 config_zsh_plugins
 install_starship
 config_zoxide
-install_nodejs
-install_nvim
+
+read -p "Do you want to install NodeJS? (y/n): " install_nodejs_answer
+[[ "$install_nodejs_answer" =~ ^[Yy]$ ]] && install_nodejs || log_info "Skipping NodeJS installation."
 
 read -p "Do you want to install Fastfetch? (y/n): " install_fastfetch_answer
 [[ "$install_fastfetch_answer" =~ ^[Yy]$ ]] && install_fastfetch || log_info "Skipping Fastfetch installation."
