@@ -621,6 +621,7 @@ configure_fcitx5() {
 sync_keybindings(){
     log_info "Loading custom keybindings configuration..."
     dconf load /org/cinnamon/desktop/keybindings/ <~/linux-mint/keybindings_config.dconf
+    xmodmap ~/linux-mint/.Xmodmap
 
 }
 
@@ -705,7 +706,7 @@ else
     log_info "Skipping wallpaper cloning step."
 fi
 
-read -p "Do you want to load custom keybindings config? (y/n): " sync_keybindings_answer
+read -p "Do you want to load custom keybindings config and map key? (y/n): " sync_keybindings_answer
 [[ "$sync_keybindings_answer" =~ ^[Yy]$ ]] && sync_keybindings || log_info "Skipping custom keybindings configuration."
 
 clean_apt
