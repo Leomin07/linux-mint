@@ -38,7 +38,6 @@ APT_PACKAGES=(
     "fzf"
     "zoxide"
     "vim"
-    "neovim"
     "kitty"
     "alacritty"
     "mpv"
@@ -49,6 +48,7 @@ APT_PACKAGES=(
     "btop"
     "neofetch"
     "kdenlive"
+    "code"
 )
 
 FLATPAK_PACKAGES=(
@@ -619,6 +619,7 @@ configure_fcitx5() {
 }
 
 sync_keybindings(){
+    xmodmap ~/linux-mint/.Xmodmap
     log_info "Loading custom keybindings configuration..."
     dconf load /org/cinnamon/desktop/keybindings/ <~/linux-mint/keybindings_config.dconf
 
@@ -638,6 +639,43 @@ install_nodejs(){
     npm install --global yarn
 }
 
+
+install_neovim() {
+    local url="https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz"
+    local target_dir="/opt/nvim"
+    local archive="nvim-linux-x86_64.tar.gz"
+    local bin_path="$target_dir/bin"
+    local export_line='export PATH="$PATH:/opt/nvim/bin"'
+
+    log_info "Downloading latest Neovim..."
+    curl -LO "$url" || { log_error "Download failed."; return 1; }
+
+    log_info "Removing old Neovim installation (if any)..."
+    sudo rm -rf "$target_dir"
+
+    log_info "Extracting Neovim to $target_dir..."
+    sudo tar -C /opt -xzf "$archive"
+    sudo mv /opt/nvim-linux-x86_64 "$target_dir"
+
+    rm -f "$archive"
+    log_success "Neovim installed at $target_dir"
+
+    # Append PATH to shell config if not already present
+    add_path_to_shell_config() {
+        local file="$1"
+        if [ -f "$file" ] && ! grep -Fxq "$export_line" "$file"; then
+            echo "$export_line" >> "$file"
+            log_info "Added Neovim to PATH in $file"
+        else
+            log_info "Neovim PATH already exists in $file or file not found"
+        fi
+    }
+
+    add_path_to_shell_config "$HOME/.bashrc"
+    add_path_to_shell_config "$HOME/.zshrc"
+
+    log_success "Neovim setup completed. Restart your terminal to use it."
+}
 
 # --- Main ---
 
@@ -674,14 +712,17 @@ config_zsh_plugins
 install_starship
 config_zoxide
 
+read -p "Do you want to install Neovim? (y/n): " install_neovim_answer
+[[ "$install_neovim_answer" =~ ^[Yy]$ ]] && install_neovim || log_info "Skipping Neovim installation."
+
 read -p "Do you want to install NodeJS? (y/n): " install_nodejs_answer
 [[ "$install_nodejs_answer" =~ ^[Yy]$ ]] && install_nodejs || log_info "Skipping NodeJS installation."
 
 read -p "Do you want to install Fastfetch? (y/n): " install_fastfetch_answer
 [[ "$install_fastfetch_answer" =~ ^[Yy]$ ]] && install_fastfetch || log_info "Skipping Fastfetch installation."
 
-read -p "Do you want to install VSCode? (y/n): " install_vscode_answer
-[[ "$install_vscode_answer" =~ ^[Yy]$ ]] && install_vscode || log_info "Skipping VSCode installation."
+# read -p "Do you want to install VSCode? (y/n): " install_vscode_answer
+# [[ "$install_vscode_answer" =~ ^[Yy]$ ]] && install_vscode || log_info "Skipping VSCode installation."
 
 read -p "Do you want to install Lazydocker? (y/n): " install_lazydocker_answer
 [[ "$install_lazydocker_answer" =~ ^[Yy]$ ]] && install_lazydocker || log_info "Skipping Lazydocker installation."
@@ -705,7 +746,7 @@ else
     log_info "Skipping wallpaper cloning step."
 fi
 
-read -p "Do you want to load custom keybindings config? (y/n): " sync_keybindings_answer
+read -p "Do you want to load custom keybindings config and map key? (y/n): " sync_keybindings_answer
 [[ "$sync_keybindings_answer" =~ ^[Yy]$ ]] && sync_keybindings || log_info "Skipping custom keybindings configuration."
 
 clean_apt
