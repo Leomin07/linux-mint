@@ -49,6 +49,7 @@ APT_PACKAGES=(
     "btop"
     "neofetch"
     "kdenlive"
+    "code"
 )
 
 FLATPAK_PACKAGES=(
@@ -619,6 +620,7 @@ configure_fcitx5() {
 }
 
 sync_keybindings(){
+    xmodmap ~/linux-mint/.Xmodmap
     log_info "Loading custom keybindings configuration..."
     dconf load /org/cinnamon/desktop/keybindings/ <~/linux-mint/keybindings_config.dconf
     xmodmap ~/linux-mint/.Xmodmap
@@ -681,8 +683,8 @@ read -p "Do you want to install NodeJS? (y/n): " install_nodejs_answer
 read -p "Do you want to install Fastfetch? (y/n): " install_fastfetch_answer
 [[ "$install_fastfetch_answer" =~ ^[Yy]$ ]] && install_fastfetch || log_info "Skipping Fastfetch installation."
 
-read -p "Do you want to install VSCode? (y/n): " install_vscode_answer
-[[ "$install_vscode_answer" =~ ^[Yy]$ ]] && install_vscode || log_info "Skipping VSCode installation."
+# read -p "Do you want to install VSCode? (y/n): " install_vscode_answer
+# [[ "$install_vscode_answer" =~ ^[Yy]$ ]] && install_vscode || log_info "Skipping VSCode installation."
 
 read -p "Do you want to install Lazydocker? (y/n): " install_lazydocker_answer
 [[ "$install_lazydocker_answer" =~ ^[Yy]$ ]] && install_lazydocker || log_info "Skipping Lazydocker installation."
