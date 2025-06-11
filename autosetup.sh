@@ -38,7 +38,6 @@ APT_PACKAGES=(
     "fzf"
     "zoxide"
     "vim"
-    "neovim"
     "kitty"
     "alacritty"
     "mpv"
@@ -642,6 +641,43 @@ install_nodejs(){
 }
 
 
+install_neovim() {
+    local url="https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz"
+    local target_dir="/opt/nvim"
+    local archive="nvim-linux-x86_64.tar.gz"
+    local bin_path="$target_dir/bin"
+    local export_line='export PATH="$PATH:/opt/nvim/bin"'
+
+    log_info "Downloading latest Neovim..."
+    curl -LO "$url" || { log_error "Download failed."; return 1; }
+
+    log_info "Removing old Neovim installation (if any)..."
+    sudo rm -rf "$target_dir"
+
+    log_info "Extracting Neovim to $target_dir..."
+    sudo tar -C /opt -xzf "$archive"
+    sudo mv /opt/nvim-linux-x86_64 "$target_dir"
+
+    rm -f "$archive"
+    log_success "Neovim installed at $target_dir"
+
+    # Append PATH to shell config if not already present
+    add_path_to_shell_config() {
+        local file="$1"
+        if [ -f "$file" ] && ! grep -Fxq "$export_line" "$file"; then
+            echo "$export_line" >> "$file"
+            log_info "Added Neovim to PATH in $file"
+        else
+            log_info "Neovim PATH already exists in $file or file not found"
+        fi
+    }
+
+    add_path_to_shell_config "$HOME/.bashrc"
+    add_path_to_shell_config "$HOME/.zshrc"
+
+    log_success "Neovim setup completed. Restart your terminal to use it."
+}
+
 # --- Main ---
 
 log_info "Updating APT packages list..."
@@ -676,6 +712,9 @@ install_zsh_plugins
 config_zsh_plugins
 install_starship
 config_zoxide
+
+read -p "Do you want to install Neovim? (y/n): " install_neovim_answer
+[[ "$install_neovim_answer" =~ ^[Yy]$ ]] && install_neovim || log_info "Skipping Neovim installation."
 
 read -p "Do you want to install NodeJS? (y/n): " install_nodejs_answer
 [[ "$install_nodejs_answer" =~ ^[Yy]$ ]] && install_nodejs || log_info "Skipping NodeJS installation."
