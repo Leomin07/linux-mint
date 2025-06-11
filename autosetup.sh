@@ -36,6 +36,8 @@ APT_PACKAGES=(
     "ffmpeg"
     "bat"
     "fzf"
+    "fd-find"
+    "ripgrep"
     "zoxide"
     "vim"
     "kitty"
@@ -622,6 +624,7 @@ sync_keybindings(){
     xmodmap ~/linux-mint/.Xmodmap
     log_info "Loading custom keybindings configuration..."
     dconf load /org/cinnamon/desktop/keybindings/ <~/linux-mint/keybindings_config.dconf
+    xmodmap ~/linux-mint/.Xmodmap
 
 }
 
