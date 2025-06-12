@@ -36,6 +36,7 @@ APT_PACKAGES=(
     "ffmpeg"
     "bat"
     "fzf"
+    "fd-find"
     "zoxide"
     "vim"
     "kitty"
