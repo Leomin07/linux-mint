@@ -33,6 +33,7 @@ APT_PACKAGES=(
     "python3-venv"
     "python3-neovim"
     "dotnet-sdk-8.0"
+    'black'
     "ffmpeg"
     "bat"
     "fzf"
@@ -46,6 +47,7 @@ APT_PACKAGES=(
     "curl"
     "stow"
     "tmux"
+    "tldr"
     "fish"
     "btop"
     "neofetch"
