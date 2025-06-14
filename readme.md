@@ -17,3 +17,13 @@
 ```
 sudo apt install ssh-askpass virt-manager -y
 ```
+
+### Map key
+
+```
+xmodmap ~/linux-mint/.Xmodmap
+```
+```
+cp ~/linux-mint/map-key.desktop ~/.config/autostart
+
+```
