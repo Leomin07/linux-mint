@@ -8,7 +8,6 @@
 # |______|______\____/|_|  |_|_____|_| \_|
 set -e
 
-
 # --- Configuration ---
 USER_NAME="MinhTD"
 USER_EMAIL="tranminhsvp@gmail.com"
@@ -63,6 +62,7 @@ FLATPAK_PACKAGES=(
     "com.brave.Browser"
     "io.missioncenter.MissionCenter"
     "com.discordapp.Discord"
+    "com.stremio.Stremio"
 )
 
 # --- Helper Functions ---
@@ -76,12 +76,12 @@ is_installed() {
 }
 
 # Install Fastfetch
-install_fastfetch(){
+install_fastfetch() {
     log_info "Adding Fastfetch PPA and installing..."
-    sudo add-apt-repository ppa:zhangsongcui3371/fastfetch -y && \
-    sudo apt update && \
-    sudo apt install fastfetch -y && \
-    log_success "Fastfetch installed successfully." || log_error "Failed to install Fastfetch."
+    sudo add-apt-repository ppa:zhangsongcui3371/fastfetch -y &&
+        sudo apt update &&
+        sudo apt install fastfetch -y &&
+        log_success "Fastfetch installed successfully." || log_error "Failed to install Fastfetch."
 }
 
 install_software() {
@@ -115,8 +115,8 @@ configure_warp() {
         log_info "Adding Cloudflare Warp GPG key..."
         # Note: The GPG key might require specific permissions or a different path
         # depending on your apt configuration.
-        curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | sudo gpg --yes --dearmor -o /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg && \
-        log_success "Cloudflare Warp GPG key added." || log_error "Failed to add Cloudflare Warp GPG key."
+        curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | sudo gpg --yes --dearmor -o /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg &&
+            log_success "Cloudflare Warp GPG key added." || log_error "Failed to add Cloudflare Warp GPG key."
     else
         log_info "Cloudflare Warp GPG key already exists, skipping."
     fi
@@ -124,13 +124,13 @@ configure_warp() {
     # Add this repo to your apt repositories
     local codename=$(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
     log_info "Adding Cloudflare Warp repository for $codename..."
-    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $codename main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list >/dev/null && \
-    log_success "Cloudflare Warp repository added." || log_error "Failed to add Cloudflare Warp repository."
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $codename main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list >/dev/null &&
+        log_success "Cloudflare Warp repository added." || log_error "Failed to add Cloudflare Warp repository."
 
     # Update and install
     log_info "Updating APT and installing Cloudflare Warp..."
-    sudo apt-get update && sudo apt-get install -y cloudflare-warp && \
-    log_success "Cloudflare Warp installed." || log_error "Failed to install Cloudflare Warp."
+    sudo apt-get update && sudo apt-get install -y cloudflare-warp &&
+        log_success "Cloudflare Warp installed." || log_error "Failed to install Cloudflare Warp."
 
     # Delete old registration if it exists
     log_info "Deleting old Warp registration (if any)..."
@@ -138,12 +138,12 @@ configure_warp() {
 
     # Register and connect Warp
     log_info "Registering new Warp..."
-    warp-cli registration new && \
-    log_success "Warp registered." || log_error "Failed to register Warp."
+    warp-cli registration new &&
+        log_success "Warp registered." || log_error "Failed to register Warp."
 
     log_info "Connecting Warp..."
-    warp-cli connect && \
-    log_success "Warp connected." || log_error "Failed to connect Warp."
+    warp-cli connect &&
+        log_success "Warp connected." || log_error "Failed to connect Warp."
 }
 
 clean_apt() {
@@ -166,8 +166,8 @@ install_zsh() {
     if [ ! -d "$HOME/.oh-my-zsh" ]; then
         log_info "Installing Oh My Zsh..."
         RUNZSH=no CHSH=no KEEP_ZSHRC=yes \
-        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" && \
-        log_success "Oh My Zsh installed." || {
+            sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" &&
+            log_success "Oh My Zsh installed." || {
             log_error "Failed to install Oh My Zsh."
             return 1
         }
@@ -181,8 +181,8 @@ install_zsh() {
 
     if [ "$current_shell" != "$(which zsh)" ]; then
         log_info "Changing default shell to Zsh for user $real_user..."
-        sudo chsh -s "$(which zsh)" "$real_user" && \
-        log_success "Default shell changed to Zsh (log out to apply)." || log_error "Failed to change default shell to Zsh."
+        sudo chsh -s "$(which zsh)" "$real_user" &&
+            log_success "Default shell changed to Zsh (log out to apply)." || log_error "Failed to change default shell to Zsh."
     else
         log_info "Default shell is already Zsh."
     fi
@@ -216,17 +216,16 @@ config_zsh_plugins() {
 
     if grep -qE '^plugins=\(.*\)' "$zshrc"; then
         log_info "Updating plugins list in ~/.zshrc..."
-        sed -i 's/^plugins=(.*)/'"$desired_plugins"'/' "$zshrc" && \
-        log_success "Updated plugins in ~/.zshrc." || \
-        log_error "Failed to update plugins in ~/.zshrc."
+        sed -i 's/^plugins=(.*)/'"$desired_plugins"'/' "$zshrc" &&
+            log_success "Updated plugins in ~/.zshrc." ||
+            log_error "Failed to update plugins in ~/.zshrc."
     else
         log_info "Adding plugins list to ~/.zshrc..."
-        echo "$desired_plugins" >> "$zshrc" && \
-        log_success "Added plugins to ~/.zshrc." || \
-        log_error "Failed to add plugins to ~/.zshrc."
+        echo "$desired_plugins" >>"$zshrc" &&
+            log_success "Added plugins to ~/.zshrc." ||
+            log_error "Failed to add plugins to ~/.zshrc."
     fi
 }
-
 
 install_nerdfont() {
     mkdir -p ~/.local/share/fonts
@@ -234,12 +233,12 @@ install_nerdfont() {
         log_info "JetBrainsMono font is already installed, skipping."
     else
         log_info "Downloading and installing JetBrainsMono font..."
-        wget -O ~/.local/share/fonts/JetBrainsMono.zip https://github.com/ryanoasis/nerd-fonts/releases/download/v3.0.2/JetBrainsMono.zip && \
-        cd ~/.local/share/fonts && \
-        unzip -o JetBrainsMono.zip && \
-        rm JetBrainsMono.zip && \
-        fc-cache -fv && \
-        log_success "JetBrainsMono font installed successfully." || log_error "Failed to install JetBrainsMono font."
+        wget -O ~/.local/share/fonts/JetBrainsMono.zip https://github.com/ryanoasis/nerd-fonts/releases/download/v3.0.2/JetBrainsMono.zip &&
+            cd ~/.local/share/fonts &&
+            unzip -o JetBrainsMono.zip &&
+            rm JetBrainsMono.zip &&
+            fc-cache -fv &&
+            log_success "JetBrainsMono font installed successfully." || log_error "Failed to install JetBrainsMono font."
     fi
 }
 
@@ -252,35 +251,35 @@ install_docker() {
     log_info "Installing Docker..."
 
     # Update and install necessary packages
-    sudo apt-get update && sudo apt-get install -y ca-certificates curl && \
-    log_success "Docker prerequisites installed." || log_error "Failed to install Docker prerequisites."
+    sudo apt-get update && sudo apt-get install -y ca-certificates curl &&
+        log_success "Docker prerequisites installed." || log_error "Failed to install Docker prerequisites."
 
     # Create keyrings directory if it doesn't exist
     sudo install -m 0755 -d /etc/apt/keyrings
 
     # Download and set permissions for Docker GPG key
-    sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc && \
-    sudo chmod a+r /etc/apt/keyrings/docker.asc && \
-    log_success "Docker GPG key added." || log_error "Failed to add Docker GPG key."
+    sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc &&
+        sudo chmod a+r /etc/apt/keyrings/docker.asc &&
+        log_success "Docker GPG key added." || log_error "Failed to add Docker GPG key."
 
     # Add Docker repository to sources list
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
     https://download.docker.com/linux/ubuntu \
-    $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
-    sudo tee /etc/apt/sources.list.d/docker.list >/dev/null && \
-    log_success "Docker repository added." || log_error "Failed to add Docker repository."
+    $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" |
+        sudo tee /etc/apt/sources.list.d/docker.list >/dev/null &&
+        log_success "Docker repository added." || log_error "Failed to add Docker repository."
 
     # Update and install Docker
-    sudo apt-get update && sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin && \
-    log_success "Docker installation completed." || log_error "Failed to install Docker."
+    sudo apt-get update && sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin &&
+        log_success "Docker installation completed." || log_error "Failed to install Docker."
 }
 
 set_default_shell() {
     local current_shell=$(getent passwd "$USER" | cut -d: -f7)
     if [ "$current_shell" != "$FISH_SHELL" ]; then
         log_info "Changing default shell to fish for user $USER..."
-        sudo chsh -s "$FISH_SHELL" "$USER" && \
-        log_success "Default shell changed to Fish (log out to apply)." || log_error "Failed to change default shell to Fish."
+        sudo chsh -s "$FISH_SHELL" "$USER" &&
+            log_success "Default shell changed to Fish (log out to apply)." || log_error "Failed to change default shell to Fish."
     else
         log_info "Default shell is already fish."
     fi
@@ -289,8 +288,8 @@ set_default_shell() {
 install_fisher() {
     if ! fish -c "type -q fisher"; then
         log_info "Installing Fisher (Fish plugin manager)..."
-        fish -c 'curl -sL https://git.io/fisher | source && fisher install jorgebucaran/fisher' && \
-        log_success "Fisher installed." || log_error "Failed to install Fisher."
+        fish -c 'curl -sL https://git.io/fisher | source && fisher install jorgebucaran/fisher' &&
+            log_success "Fisher installed." || log_error "Failed to install Fisher."
     else
         log_info "Fisher is already installed, skipping."
     fi
@@ -301,14 +300,13 @@ install_fish_plugins() {
     for plugin in "${FISH_PLUGINS[@]}"; do
         if ! fish -c "fisher list | grep -q '$plugin'"; then
             log_info "Installing Fish plugin: $plugin"
-            fish -c "fisher install $plugin" && \
-            log_success "Fish plugin '$plugin' installed." || log_error "Failed to install Fish plugin '$plugin'."
+            fish -c "fisher install $plugin" &&
+                log_success "Fish plugin '$plugin' installed." || log_error "Failed to install Fish plugin '$plugin'."
         else
             log_info "Fish plugin '$plugin' is already installed."
         fi
     done
 }
-
 
 # install_lazydocker() {
 #     log_info "Installing Lazydocker..."
@@ -326,7 +324,6 @@ install_fish_plugins() {
 #     log_success "Alias for LazyDocker added to Fish config."
 # }
 
-
 install_lazydocker() {
     log_info "Starting Lazydocker installation/configuration."
 
@@ -342,7 +339,7 @@ install_lazydocker() {
         log_info "Lazydocker binary not found. Attempting installation from jesseduffield/lazydocker script."
         curl https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh | bash
         local install_status=$? # Capture the exit status of the curl|bash pipeline
-        
+
         if [ $install_status -eq 0 ] && command -v lazydocker >/dev/null 2>&1; then
             log_success "Lazydocker binary installed successfully."
             lazydocker_binary_found="true"
@@ -374,7 +371,7 @@ install_lazydocker() {
             log_info "Alias 'lzd' already found in Fish config file: $FISH_CONFIG_FILE. Skipping addition."
             lzd_alias_configured="true"
         else
-            echo "$fish_alias_content" > "$FISH_CONFIG_FILE" # Overwrite/create new file for the function
+            echo "$fish_alias_content" >"$FISH_CONFIG_FILE" # Overwrite/create new file for the function
             log_success "Alias 'lzd' added to Fish config: $FISH_CONFIG_FILE."
             lzd_alias_configured="true"
         fi
@@ -392,7 +389,7 @@ install_lazydocker() {
             log_info "Alias 'lzd' already found in $current_shell config file: $SHELL_CONFIG_FILE. Skipping addition."
             lzd_alias_configured="true"
         else
-            echo "$bash_zsh_alias_line" >> "$SHELL_CONFIG_FILE"
+            echo "$bash_zsh_alias_line" >>"$SHELL_CONFIG_FILE"
             log_success "Alias 'lzd' added to $current_shell config: $SHELL_CONFIG_FILE."
             lzd_alias_configured="true"
         fi
@@ -418,13 +415,12 @@ install_lazydocker() {
     return 0 # Indicate success of the function
 }
 
-
 clone_wallpaper() {
     log_info "Cloning wallpaper repository..."
     if [ ! -d "~/Pictures/wallpaper" ]; then # Check if directory exists before cloning
-        cd ~/Pictures # You can also choose a different location
-        git clone --depth=1 https://github.com/Leomin07/wallpaper.git ~/Pictures/wallpaper && \
-        log_success "Wallpaper repository cloned to ~/Pictures/wallpaper." || log_error "Failed to clone wallpaper repository."
+        cd ~/Pictures                        # You can also choose a different location
+        git clone --depth=1 https://github.com/Leomin07/wallpaper.git ~/Pictures/wallpaper &&
+            log_success "Wallpaper repository cloned to ~/Pictures/wallpaper." || log_error "Failed to clone wallpaper repository."
     else
         log_info "Wallpaper repository already exists in ~/Pictures/wallpaper, skipping clone."
     fi
@@ -441,7 +437,7 @@ config_zoxide() {
 
     # Add to Bash config
     if [ -f "$bashrc" ] && ! grep -Fxq "$bash_init" "$bashrc"; then
-        echo "$bash_init" >> "$bashrc"
+        echo "$bash_init" >>"$bashrc"
         echo "[✔] Added zoxide init to $bashrc"
     else
         echo "[✔] zoxide already configured in $bashrc or file not found"
@@ -449,7 +445,7 @@ config_zoxide() {
 
     # Add to Zsh config
     if [ -f "$zshrc" ] && ! grep -Fxq "$zsh_init" "$zshrc"; then
-        echo "$zsh_init" >> "$zshrc"
+        echo "$zsh_init" >>"$zshrc"
         echo "[✔] Added zoxide init to $zshrc"
     else
         echo "[✔] zoxide already configured in $zshrc or file not found"
@@ -464,16 +460,14 @@ config_zoxide() {
     # fi
 }
 
-
-
 install_starship() {
     log_info "Installing Starship prompt..."
 
     # Install Starship if not already installed
     if ! command -v starship &>/dev/null; then
         log_info "Starship not found. Downloading and installing..."
-        curl -sS https://starship.rs/install.sh | sh -s -- -y && \
-        log_success "Starship installed successfully." || log_error "Failed to install Starship."
+        curl -sS https://starship.rs/install.sh | sh -s -- -y &&
+            log_success "Starship installed successfully." || log_error "Failed to install Starship."
     else
         log_info "Starship is already installed. Skipping installation."
     fi
@@ -512,18 +506,17 @@ install_starship() {
     # log_success "Starship setup completed."
 }
 
-
 install_vscode() {
     log_info "Installing VS Code..."
-    sudo apt-get install -y wget gpg && \
-    wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor >packages.microsoft.gpg && \
-    sudo install -D -o root -g root -m 644 packages.microsoft.gpg /etc/apt/keyrings/packages.microsoft.gpg && \
-    echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" | sudo tee /etc/apt/sources.list.d/vscode.list >/dev/null && \
-    rm -f packages.microsoft.gpg && \
-    sudo apt install -y apt-transport-https && \
-    sudo apt update -y && \
-    sudo apt install -y code && \
-    log_success "VS Code installed successfully." || log_error "Failed to install VS Code."
+    sudo apt-get install -y wget gpg &&
+        wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor >packages.microsoft.gpg &&
+        sudo install -D -o root -g root -m 644 packages.microsoft.gpg /etc/apt/keyrings/packages.microsoft.gpg &&
+        echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" | sudo tee /etc/apt/sources.list.d/vscode.list >/dev/null &&
+        rm -f packages.microsoft.gpg &&
+        sudo apt install -y apt-transport-https &&
+        sudo apt update -y &&
+        sudo apt install -y code &&
+        log_success "VS Code installed successfully." || log_error "Failed to install VS Code."
 }
 
 # Configure fcitx5 input method for Vietnamese typing
@@ -622,7 +615,7 @@ configure_fcitx5() {
     log_success "Fcitx5 configuration complete. Please restart your graphical session or reboot for full effect."
 }
 
-sync_keybindings(){
+sync_keybindings() {
     xmodmap ~/linux-mint/.Xmodmap
     log_info "Loading custom keybindings configuration..."
     dconf load /org/cinnamon/desktop/keybindings/ <~/linux-mint/keybindings_config.dconf
@@ -630,7 +623,7 @@ sync_keybindings(){
 
 }
 
-install_nodejs(){
+install_nodejs() {
     # Download and install nvm:
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
 
@@ -644,7 +637,6 @@ install_nodejs(){
     npm install --global yarn
 }
 
-
 install_neovim() {
     local url="https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz"
     local target_dir="/opt/nvim"
@@ -653,7 +645,10 @@ install_neovim() {
     local export_line='export PATH="$PATH:/opt/nvim/bin"'
 
     log_info "Downloading latest Neovim..."
-    curl -LO "$url" || { log_error "Download failed."; return 1; }
+    curl -LO "$url" || {
+        log_error "Download failed."
+        return 1
+    }
 
     log_info "Removing old Neovim installation (if any)..."
     sudo rm -rf "$target_dir"
@@ -669,7 +664,7 @@ install_neovim() {
     add_path_to_shell_config() {
         local file="$1"
         if [ -f "$file" ] && ! grep -Fxq "$export_line" "$file"; then
-            echo "$export_line" >> "$file"
+            echo "$export_line" >>"$file"
             log_info "Added Neovim to PATH in $file"
         else
             log_info "Neovim PATH already exists in $file or file not found"
@@ -682,6 +677,11 @@ install_neovim() {
     log_success "Neovim setup completed. Restart your terminal to use it."
 }
 
+install_vimplug(){
+    sh -c 'curl -fLo "${XDG_DATA_HOME:-$HOME/.local/share}"/nvim/site/autoload/plug.vim --create-dirs \
+       https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim'
+}
+
 # --- Main ---
 
 log_info "Updating APT packages list..."
@@ -689,9 +689,9 @@ sudo apt update || log_error "Failed to update APT packages list."
 
 if ! command -v flatpak &>/dev/null; then
     log_info "Installing Flatpak..."
-    sudo apt install -y flatpak && \
-    sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo && \
-    log_success "Flatpak installed and Flathub added." || log_error "Failed to install Flatpak or add Flathub."
+    sudo apt install -y flatpak &&
+        sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo &&
+        log_success "Flatpak installed and Flathub added." || log_error "Failed to install Flatpak or add Flathub."
 else
     log_info "Flatpak is already installed, skipping."
 fi
@@ -703,8 +703,8 @@ done
 for flatpak_pkg in "${FLATPAK_PACKAGES[@]}"; do
     if ! flatpak list --app | grep -q "$flatpak_pkg"; then
         log_info "Installing Flatpak app: $flatpak_pkg"
-        flatpak install -y flathub "$flatpak_pkg" && \
-        log_success "Flatpak app '$flatpak_pkg' installed." || log_error "Failed to install Flatpak app '$flatpak_pkg'."
+        flatpak install -y flathub "$flatpak_pkg" &&
+            log_success "Flatpak app '$flatpak_pkg' installed." || log_error "Failed to install Flatpak app '$flatpak_pkg'."
     else
         log_info "Flatpak app '$flatpak_pkg' is already installed, skipping."
     fi
@@ -716,6 +716,8 @@ install_zsh_plugins
 config_zsh_plugins
 install_starship
 config_zoxide
+
+read -p "Do you want to install Vimplug]$ ]] && install_vimplug || log_info "Skipping Vimplug installation."
 
 read -p "Do you want to install Neovim? (y/n): " install_neovim_answer
 [[ "$install_neovim_answer" =~ ^[Yy]$ ]] && install_neovim || log_info "Skipping Neovim installation."
