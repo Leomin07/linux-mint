@@ -717,7 +717,8 @@ config_zsh_plugins
 install_starship
 config_zoxide
 
-read -p "Do you want to install Vimplug]$ ]] && install_vimplug || log_info "Skipping Vimplug installation."
+read -p "Do you want to install Vimplug? (y/n): " install_vimplug_answer
+[[ "$install_vimplug_answer" =~ ^[Yy]$ ]] && install_vimplug || log_info "Skipping Vimplug installation."
 
 read -p "Do you want to install Neovim? (y/n): " install_neovim_answer
 [[ "$install_neovim_answer" =~ ^[Yy]$ ]] && install_neovim || log_info "Skipping Neovim installation."
